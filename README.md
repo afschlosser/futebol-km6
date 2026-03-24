@@ -12,7 +12,7 @@ Bot que gerencia automaticamente as inscrições e o sorteio de times no grupo d
 | **Seg → Qua** | Membros enviam seus nomes pelo grupo |
 | **Quarta às 16h** | Bot fecha inscrições, sorteia e envia os times |
 
----
+
 
 ## 📁 Estrutura de arquivos
 
