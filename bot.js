@@ -13,9 +13,7 @@ const {
   fecharLista
 } = require('./jogadores');
 
-// ─── CONFIG ─────────────────────────────────────────────
 const NOME_DO_GRUPO = 'FUTEBOL KM6 TESTE';
-// ────────────────────────────────────────────────────────
 
 const client = new Client({
   authStrategy: new LocalAuth(),
@@ -25,151 +23,105 @@ const client = new Client({
   }
 });
 
-// ─── QR CODE ────────────────────────────────────────────
 client.on('qr', (qr) => {
   console.log('\n📱 Escaneie o QR Code:\n');
   qrcode.generate(qr, { small: true });
 });
 
-// ─── READY ──────────────────────────────────────────────
 client.on('ready', async () => {
   console.log('✅ Bot conectado!');
-
-  const chats = await client.getChats();
-  const grupos = chats.filter(c => c.isGroup);
-
-  console.log('📋 GRUPOS:');
-  grupos.forEach((g, i) => console.log(`${i + 1}. "${g.name}"`));
-
   const grupo = await buscarGrupo();
   if (grupo) {
+    console.log(`✅ Grupo encontrado: ${grupo.name}`);
     await grupo.sendMessage('🚀 Bot conectado e pronto!');
+  } else {
+    console.log('⚠️ Grupo não encontrado. Verifique o nome em NOME_DO_GRUPO.');
   }
 });
 
-// ─── BUSCAR GRUPO ───────────────────────────────────────
 async function buscarGrupo() {
   const chats = await client.getChats();
-  const grupos = chats.filter(c => c.isGroup);
-
+  const grupos = chats.filter(c => {
+    try { return c.isGroup; } catch (e) { return false; }
+  });
   return grupos.find(g => g.name.trim() === NOME_DO_GRUPO.trim());
 }
 
-// ─── FUNÇÃO PARA PROCESSAR VÁRIOS NOMES ─────────────────
 function processarNomes(texto, tipo) {
-  const nomesTexto = texto.trim();
-
-  const nomes = nomesTexto
-    .split(/,|\n/) // separa por vírgula ou quebra de linha
+  const nomes = texto.trim()
+    .split(/,|\n/)
     .map(n => n.trim())
     .filter(n => n.length > 0);
 
-  let respostas = [];
-
-  for (const nome of nomes) {
-    const resultado = adicionarJogador(tipo, nome);
-    respostas.push(resultado);
-  }
-
-  return respostas.join('\n');
+  return nomes.map(nome => adicionarJogador(tipo, nome)).join('\n');
 }
 
-// ─── CRON SEGUNDA ───────────────────────────────────────
 cron.schedule('0 19 * * 1', async () => {
   const grupo = await buscarGrupo();
   if (!grupo) return;
-
   resetarLista();
   abrirLista();
-
   await grupo.sendMessage('⚽ Lista aberta!');
 }, { timezone: 'America/Sao_Paulo' });
 
-// ─── CRON QUARTA ────────────────────────────────────────
 cron.schedule('0 16 * * 3', async () => {
   const grupo = await buscarGrupo();
   if (!grupo) return;
-
   fecharLista();
   await grupo.sendMessage(gerarMensagem());
 }, { timezone: 'America/Sao_Paulo' });
 
-// ─── MENSAGENS ──────────────────────────────────────────
 client.on('message_create', async (msg) => {
-  console.log('📩', msg.body);
-
   const chat = await msg.getChat();
-
   if (!chat.isGroup) return;
   if (chat.name.trim() !== NOME_DO_GRUPO.trim()) return;
 
   const texto = msg.body.toLowerCase().trim();
 
   try {
-
-    // ── ABRIR ──
     if (texto === '!abrir') {
       resetarLista();
       abrirLista();
       return chat.sendMessage('🟢 Lista aberta!');
     }
 
-    // ── LISTA ──
     if (texto === '!lista') {
       return msg.reply(verLista());
     }
 
-    // ── SORTEAR ──
     if (texto === '!sortear') {
       fecharLista();
       return chat.sendMessage(gerarMensagem());
     }
 
-    // ── GOLEIRO (MULTI) ──
     if (texto.startsWith('goleiro ')) {
-      const nomes = msg.body.slice(8);
-      return msg.reply(processarNomes(nomes, 'goleiro'));
+      return msg.reply(processarNomes(msg.body.slice(8), 'goleiro'));
     }
 
-    // ── LINHA (MULTI) ──
     if (texto.startsWith('linha ')) {
-      const nomes = msg.body.slice(6);
-      return msg.reply(processarNomes(nomes, 'linha'));
+      return msg.reply(processarNomes(msg.body.slice(6), 'linha'));
     }
 
-    // ── RESERVA (MULTI) ──
     if (texto.startsWith('reserva ')) {
-      const nomes = msg.body.slice(8);
-      return msg.reply(processarNomes(nomes, 'reserva'));
+      return msg.reply(processarNomes(msg.body.slice(8), 'reserva'));
     }
 
-    // ── REMOVER ──
     if (texto.startsWith('remover ')) {
-      const nome = msg.body.slice(8).trim();
-      return msg.reply(removerJogador(nome));
+      return msg.reply(removerJogador(msg.body.slice(8).trim()));
     }
 
-    // ── TESTE COMPLETO ──
     if (texto === '!testar') {
       await msg.reply('🧪 Teste iniciado...');
-
       resetarLista();
       abrirLista();
-
       processarNomes('Goleiro1, Goleiro2', 'goleiro');
-      processarNomes(
-        'Jogador1, Jogador2, Jogador3, Jogador4, Jogador5, Jogador6, Jogador7, Jogador8',
-        'linha'
-      );
+      processarNomes('Jogador1, Jogador2, Jogador3, Jogador4, Jogador5, Jogador6, Jogador7, Jogador8', 'linha');
       processarNomes('Reserva1, Reserva2', 'reserva');
-
       await chat.sendMessage(verLista());
-
       fecharLista();
       return chat.sendMessage(gerarMensagem());
     }
 
-    // ── TESTE SIMPLES ──
     if (texto === '!teste') {
       return chat.sendMessage('✅ Bot funcionando!');
     }
@@ -179,5 +131,4 @@ client.on('message_create', async (msg) => {
   }
 });
 
-// ─── START ─────────────────────────────────────────────
 client.initialize();
